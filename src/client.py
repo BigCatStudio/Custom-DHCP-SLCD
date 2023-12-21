@@ -1,4 +1,7 @@
-from scapy.all import *
+from scapy.all import * 
 
 if __name__ == "__main__":
-    print("Client")
+    target = "www.google.com"
+    ip = scapy.all.IP(dst=target)
+    for packet in ip:
+        print(packet.summary())
