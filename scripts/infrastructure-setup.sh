@@ -14,7 +14,7 @@ ip netns add ns-green
 ip netns exec ns-green ip link set dev lo up
 ip link add vt-green type veth peer name vt-green-br
 ip link set vt-green netns ns-green
-ip netns exec ns-green ip addr add 10.10.7.1/24 dev vt-green
+# ip netns exec ns-green ip addr add 10.10.7.1/24 dev vt-green
 ip netns exec ns-green ip link set vt-green up
 
 
@@ -91,3 +91,13 @@ if [ $# -ge 1 ] && [ "$1" = "test" ]; then
     ip netns exec ns-grey ping 10.10.7.1 -c 4
     ip netns exec ns-grey ping 10.10.8.1 -c 4
 fi  
+
+
+# Displaying terminals for each namespace
+ip netns exec ns-green xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'green: 10.10.7.1' -fa 'Monospace' -fs 12 -bg darkgreen &
+ip netns exec ns-blue xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'red: 10.10.7.2' -fa 'Monospace' -fs 12 -bg darkblue &
+
+
+# Testing purpouses commands
+# sudo ip netns exec ns-green dnsmasq --dhcp-range=10.10.7.20,10.10.7.25,255.255.255.0 --interface=vt-green --no-daemon
+# sudo ip netns exec ns-blue dhclient -d vt-blue
