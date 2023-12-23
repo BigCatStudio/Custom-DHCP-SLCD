@@ -14,7 +14,7 @@ ip netns add ns-green
 ip netns exec ns-green ip link set dev lo up
 ip link add vt-green type veth peer name vt-green-br
 ip link set vt-green netns ns-green
-# ip netns exec ns-green ip addr add 10.10.7.1/24 dev vt-green
+ip netns exec ns-green ip addr add 10.10.7.1/24 dev vt-green
 ip netns exec ns-green ip link set vt-green up
 
 
@@ -23,7 +23,7 @@ ip netns add ns-blue
 ip netns exec ns-blue ip link set dev lo up
 ip link add vt-blue type veth peer name vt-blue-br
 ip link set vt-blue netns ns-blue
-ip netns exec ns-blue ip addr add 10.10.7.2/24 dev vt-blue
+# ip netns exec ns-blue ip addr add 10.10.7.2/24 dev vt-blue
 ip netns exec ns-blue ip link set vt-blue up
 
 
