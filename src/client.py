@@ -1,8 +1,9 @@
-from scapy.all import sendp, sniff, get_if_raw_hwaddr, get_if_hwaddr, conf
+from scapy.all import sendp, sniff, get_if_raw_hwaddr, get_if_hwaddr, conf, get_working_if
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread
+from os import system
 
 
 class DHCP_Client:
@@ -10,6 +11,28 @@ class DHCP_Client:
         self.interface = interface
         self.mac_client = mac_client
         self.ip_client = "0.0.0.0"      # Initially interface does not have assigned IP address
+        self.ip_offered = None
+
+    def send_discover(self):
+        packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
+                 IP(src="0.0.0.0", dst="255.255.255.255") / \
+                 UDP(sport=68, dport=67) / \
+                 BOOTP(chaddr=self.mac_client) / \
+                 DHCP(options=[("message-type", "discover"), "end"])
+        sendp(packet, iface=self.interface)
+        # packet.show()   # Displays all elements of every layer of packet
+
+    def send_request(self, ip_offered, ip_server):
+        packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
+                 IP(src="0.0.0.0", dst="255.255.255.255") / \
+                 UDP(sport=68, dport=67) / \
+                 BOOTP(chaddr=self.mac_client) / \
+                 DHCP(options=[('message-type', 'request'),
+                               ("client_id", self.mac_client),
+                               ("requested_addr", ip_offered),
+                               ("server_id", ip_server), 'end'])
+        sendp(packet, iface=self.interface)
+        self.ip_offered = ip_offered
 
     def packet_handler(self, packet):
         if DHCP in packet:
@@ -17,32 +40,19 @@ class DHCP_Client:
 
             match packet[DHCP].options[0][1]:
                 case 2:  # DHCP Offer
-                    print(f'Received DHCP Offer for IP address: {packet[BOOTP].yiaddr}')
-                    # cli_mac = pkt['Ether'].dst
-                    # serv_addr, off_addr = pkt['BOOTP'].siaddr, pkt[BOOTP].yiaddr
-                    # offered_ip = off_addr
-                    # send_request(cli_mac, off_addr, serv_addr)
+                    ip_offered = packet[BOOTP].yiaddr
+                    print(f"Received DHCP Offer for IP address: {ip_offered}")
+                    ip_server = packet['BOOTP'].siaddr
+                    self.send_request(ip_offered, ip_server)
                 case 5:  # DHCP ACK
-                    print(f'Received DHCP ACK for IP address: {packet[BOOTP].yiaddr}')
-                    # serv_mac, cli_mac = pkt[Ether].src, pkt[Ether].dst
-                    # serv_addr, cli_addr = pkt[BOOTP].siaddr, pkt[BOOTP].yiaddr
-                    # iface = get_working_if().network_name
-                    # system(f'ifconfig {iface} {cli_addr}/24')
-                    # test_icmp(cli_mac, cli_addr, serv_mac, serv_addr)
+                    if self.ip_offered == packet[BOOTP].yiaddr:
+                        print(f"Received DHCP ACK for IP address: {self.ip_offered}")
+                        system(f"ifconfig {self.interface} {self.ip_offered}/24")
+                        self.ip_client = self.ip_offered
         # or p in ans: print p[1][Ether].src, p[1][IP].src
 
     def end_sniffing():
         print("Client is not sniffing")
-
-    def send_discover(self):
-        packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
-             IP(src="0.0.0.0", dst="255.255.255.255") / \
-             UDP(sport=68, dport=67) / \
-             BOOTP(chaddr=self.mac_client) / \
-             DHCP(options=[("message-type", "discover"), "end"])
-
-        sendp(packet, iface=self.interface)
-        # packet.show()   # Displays all elements of every layer of packet
 
     def __str__(self):
         output = "\nClient information\n" + \
