@@ -13,6 +13,8 @@ if __name__ == "__main__":
     packet = sniff(iface="vt-green", filter="udp and (port 67 or port 68)", prn=packet_handler)
     print(packet)
 
+# TODO need to add lease time option 51, and renewal time option 58
+# TODO check what options require DHCp Discover and add them in DHCP Offer
 
 # TODO check what are the timeouts for holding IP address for client if client does not respond with Request etc 
 # TODO Hold IP addresses for lease time -> how to do it?
