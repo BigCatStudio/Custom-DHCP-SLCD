@@ -1,20 +1,124 @@
-from scapy.all import sniff
+from scapy.all import sendp, sniff, get_if_raw_hwaddr, get_if_hwaddr, conf
+from scapy.arch import get_if_addr
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
+from threading import Thread, Timer
+from os import system
+
+from utilities import get_option_value
 
 
-def packet_handler(packet):
-    if DHCP in packet:
-        print(packet.summary())
-# or p in ans: print p[1][Ether].src, p[1][IP].src
+class DHCP_Server:
+    def __init__(self, interface, mac_server, ip_server, ip_pool_start, ip_pool_end, lease_time):
+        self.host_name = "server-" + str(interface)
+        self.interface = interface
+        self.mac_server = mac_server
+        self.ip_server = ip_server      # Initially interface does not have assigned IP address
+        # TODO create class for handling ip addresses pool
+        self.lease_time = lease_time
+        self.renewal_time = lease_time // 2     # Almost always half of lease_time
+        self.timer_lease = None     # It will measure if lease time passes
+        self.timer_renewal = None   # It will measure if renewal time passes
+        # self.Client_Info = None     # Informations regarding DHCP client
+
+    # def clear_info(self):
+    #     self.ip_client = "0.0.0.0"
+    #     self.ip_offered = None
+    #     self.lease_time = 0
+    #     self.renewal_time = 0
+    #     self.timer_lease = None
+    #     self.timer_renewal = None
+    #     self.Server_Info = None
+
+    # def renewal_time_passed(self):
+    #     print(f"Renewal time passed for IP address: {self.ip_client}")
+    #     # TODO invoke DHCP Request for the same IP address
+
+    # def lease_time_passed(self):
+    #     print(f"Lease time passed for IP address: {self.ip_client}")
+    #     system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
+    #     # TODO invoke DHCP Discover (DHCP server might have freed cient's IP address)
+    #     self.clear_info()   # TODO what with active timers, should they be stopped?
+    #     self.send_discover()    # TODO think, maybe regular discover check should invoke new DHCP Discover
+
+    # TODO check ports for offer
+    def send_offer(self):
+        packet = Ether(src=self.mac_server, dst="ff:ff:ff:ff:ff:ff") / \
+                 IP(src=self.ip_server, dst="255.255.255.255", ttl=64) / \
+                 UDP(sport=68, dport=67) / \
+                 BOOTP(chaddr=self.mac_server) / \
+                 DHCP(options=[("message-type", "offer"),
+                               ("hostname", self.host_name), "end"])
+                                # TODO add offered IP
+                                # ("param_req_list", [1, 12, 28, 51, 58]), "end"])
+        sendp(packet, iface=self.interface)
+        print("Sent DHCP Offer")
+        # print(f"{packet.summary()}")
+
+    # TODO check ports for ack
+    def send_ack(self, ip_server):
+        packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
+                 IP(src=self.ip_server, dst="255.255.255.255", ttl=64) / \
+                 UDP(sport=68, dport=67) / \
+                 BOOTP(chaddr=self.mac_client) / \
+                 DHCP(options=[("message-type", "ack"),
+                               ("hostname", self.host_name), "end"])
+                                # ("requested_addr", self.ip_offered),
+                                # ("server_id", ip_server),   # TODO think if it is needed
+                                # ("param_req_list", [1, 12, 28, 51, 58]), "end"])
+        sendp(packet, iface=self.interface)
+        print(f"Sent DHCP Ack for IP: {self.ip_offered}")
+        print(f"{packet.summary()}")
+
+    # TODO add handling for all DHCP message types
+    # 1: DHCPDISCOVER
+    # 2: DHCPOFFER
+    # 3: DHCPREQUEST
+    # 4: DHCPDECLINE
+    # 5: DHCPACK
+    # 6: DHCPNAK
+    # 7: DHCPRELEASE
+    # 8: DHCPINFORM
+
+    def packet_handler(self, packet):
+        # TODO Check how server can take IP address from client before lease time
+        if DHCP in packet:
+            match get_option_value(packet[DHCP].options, "message-type"):
+                case 1:  # DHCP Discover
+                    print("Managing DHCP Discover")
+                case 3:  # DHCP Request
+                    print("Managing DHCP Request")
+            print(f"{packet.summary()}")
+
+    # def end_sniffing():
+    #     print("Server is not sniffing")
+
+    def __str__(self):
+        output = "\nServer info:" + \
+                 f"\nInterface: {self.interface}" + \
+                 f"\nMAC address (bytes): {self.mac_server}" + \
+                 f"\nMAC address (string): {get_if_hwaddr(conf.iface)}" + \
+                 f"\nIP address: {self.ip_server}"
+        return output
+
 
 if __name__ == "__main__":
-    packet = sniff(iface="vt-green", filter="udp and (port 67 or port 68)", prn=packet_handler)
-    print(packet)
+    conf.checkIPaddr = False    # TODO check if it needs to be set for server
+    Server = DHCP_Server(conf.iface, get_if_raw_hwaddr(conf.iface)[1], get_if_addr(conf.iface), "10.10.7.5", "10.10.7.50", 3600)
 
-# TODO need to add lease time option 51, and renewal time option 58
-# TODO check what options require DHCp Discover and add them in DHCP Offer
+    thread_sniffing = Thread(
+        target=lambda: sniff(
+            filter="udp and (port 67 or 68)",
+            prn=Server.packet_handler,
+            # stop_filter=Server.end_sniffing,  # TODO think if client ever has to stop sniffing packets
+            timeout=1000  # TODO If prn will not be invoked in timeout thread will terminate -> maybe it should never terminate?
+            # TODO if i click CTRL + C should allocated IP address be removed for interface?
+            # TODO handle CTRL + C interrupt
+        ),
+        name="thread_sniffing"
+    )
 
-# TODO check what are the timeouts for holding IP address for client if client does not respond with Request etc 
-# TODO Hold IP addresses for lease time -> how to do it?
+    thread_sniffing.start()
+    # sleep(0.25)
+    thread_sniffing.join()

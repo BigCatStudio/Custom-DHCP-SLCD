@@ -5,6 +5,8 @@ from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
 from os import system
 
+from utilities import get_option_value
+
 
 class DHCP_Server_Info:
     def __init__(self, mac_address, ip_address, host_name, subnet_mask, broadcast_address):
@@ -20,12 +22,7 @@ class DHCP_Server_Info:
                f"\n\t{self.ip_address}" + \
                f"\n\t{self.host_name}" + \
                f"\n\t{self.subnet_mask}" + \
-               f"\n\t{self.broadcast_address}\n"
-
-
-def get_option_value(option_list, option):
-    option_list_filtered = [option for option in option_list if isinstance(option, tuple)]  # Removing "end", "pad" elements
-    return next((value for name, value in option_list_filtered if name == option), None)    # Extracting value of option securly, option can be at any place in list of DHCP options
+               f"\n\t{self.broadcast_address}"
 
 
 class DHCP_Client:
@@ -39,7 +36,7 @@ class DHCP_Client:
         self.renewal_time = 0       # Almost always half of lease_time
         self.timer_lease = None     # It will measure if lease time passes
         self.timer_renewal = None   # It will measure if renewal time passes
-        self.Server_Info = None     # TODO Initialized when all informations are retrieved in DHCP Offer
+        self.Server_Info = None     # Informations regarding DHCP server
 
     def clear_info(self):
         self.ip_client = "0.0.0.0"
@@ -58,8 +55,8 @@ class DHCP_Client:
         print(f"Lease time passed for IP address: {self.ip_client}")
         system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
         # TODO invoke DHCP Discover (DHCP server might have freed cient's IP address)
-        self.clear_info()   # TODO what with active timers?
-        self.send_discover()
+        self.clear_info()   # TODO what with active timers, should they be stopped?
+        self.send_discover()    # TODO think, maybe regular discover check should invoke new DHCP Discover
 
     def send_discover(self):
         # TODO should be invoked if client does not have allocated IP address -> maybe timer from the last DHCP Discover:
@@ -72,10 +69,12 @@ class DHCP_Client:
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print(f"\n{packet.summary()}")
         print("Sent DHCP Discovery")
+        # print(f"{packet.summary()}")
         # TODO make availabilty to define TTl for user when creating client -> make thta for all options
         # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
+        # TODO create json with default DHCP configuration for Client and Server 
+        # TODO Client and Server should take values from json files when started
 
     def send_request(self, ip_server):
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
@@ -88,8 +87,8 @@ class DHCP_Client:
                                ("server_id", ip_server),    # TODO think if it is needed
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print(f"\n{packet.summary()}")
         print(f"Sent DHCP Request for IP: {self.ip_offered}")
+        print(f"{packet.summary()}")
         # TODO identyfing client and server should be done based on hostname and ip
         # server -> (hostname, server_id)
         # client -> (hostname, client_id)
@@ -97,14 +96,11 @@ class DHCP_Client:
         # same for server (it will exchange messages with many clients)
 
     def packet_handler(self, packet):
-        # TODO Do not handle new packets if current IP is available
         # TODO Check how server can take IP address from client before lease time
         if DHCP in packet:
-            print(f"\n{packet.summary()}")
             match get_option_value(packet[DHCP].options, "message-type"):
                 case 2:  # DHCP Offer
                     # TODO check if offered IP is valid -> regex
-                    # TODO check if client does not already have offered IP
                     if self.ip_offered is None:     # Another server might have already sent offered ip_address
                         ip_server = packet["BOOTP"].siaddr
                         self.ip_offered = packet[BOOTP].yiaddr
@@ -122,21 +118,22 @@ class DHCP_Client:
                         system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
                         self.ip_client = self.ip_offered
                         self.lease_time = get_option_value(packet[DHCP].options, "lease_time")
-                        self.timer_lease = Timer(self.lease_time, self.lease_time_passed)
                         self.renewal_time = get_option_value(packet[DHCP].options, "renewal_time")
+                        self.timer_lease = Timer(self.lease_time, self.lease_time_passed)
                         self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed)
                         self.timer_lease.start()
                         self.timer_renewal.start()
+            print(f"{packet.summary()}")
 
-    def end_sniffing():
-        print("Client is not sniffing")
+    # def end_sniffing():
+    #     print("Client is not sniffing")
 
     def __str__(self):
-        output = "\nClient info:\n" + \
-                 f"Interface: {self.interface}\n" + \
-                 f"MAC address (bytes): {self.mac_client}\n" + \
-                 f"MAC address (string): {get_if_hwaddr(conf.iface)}\n" + \
-                 f"IP address: {self.ip_client}"
+        output = "\nClient info:" + \
+                 f"\nInterface: {self.interface}" + \
+                 f"\nMAC address (bytes): {self.mac_client}" + \
+                 f"\nMAC address (string): {get_if_hwaddr(conf.iface)}" + \
+                 f"\nIP address: {self.ip_client}"
         return output
 
 
@@ -150,7 +147,8 @@ if __name__ == "__main__":
             prn=Client.packet_handler,
             # stop_filter=Client.end_sniffing,  # TODO think if client ever has to stop sniffing packets
             timeout=1000  # TODO If prn will not be invoked in timeout thread will terminate -> maybe it should never terminate?
-            # TODO if i click ctrl + c should allocated IP address be removed for interface?
+            # TODO if i click CTRL + C should allocated IP address be removed for interface?
+            # TODO handle CTRL + C interrupt
         ),
         name="thread_sniffing"
     )
