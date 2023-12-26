@@ -69,7 +69,7 @@ class DHCP_Client:
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print("Sent DHCP Discovery")
+        print("Sent DHCP Discover")
         # print(f"{packet.summary()}")
         # TODO make availabilty to define TTl for user when creating client -> make thta for all options
         # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
@@ -97,35 +97,35 @@ class DHCP_Client:
 
     def packet_handler(self, packet):
         # TODO Check how server can take IP address from client before lease time
-        if DHCP in packet:
-            match get_option_value(packet[DHCP].options, "message-type"):
-                case 2:  # DHCP Offer
-                    print("Received offer")
-                    # TODO check if offered IP is valid -> regex
-                    if self.ip_offered is None:     # Another server might have already sent offered ip_address
-                        ip_server = packet["BOOTP"].siaddr
-                        self.ip_offered = packet[BOOTP].yiaddr
-                        self.Server_Info = DHCP_Server_Info(packet[Ether].src,
-                                                            # packet[IP].src,
-                                                            get_option_value(packet[DHCP].options, "server_id"),
-                                                            get_option_value(packet[DHCP].options, "hostname"),
-                                                            get_option_value(packet[DHCP].options, "subnet_mask"),
-                                                            get_option_value(packet[DHCP].options, "broadcast_address"))
-                        print(f"Received DHCP Offer for IP address: {self.ip_offered}")
-                        self.send_request(ip_server)
-                case 5:  # DHCP ACK
-                    # TODO checking if ACK is received from server that you have info from DHCP Offer
-                    if self.ip_offered == packet[BOOTP].yiaddr:
-                        print(f"Received DHCP ACK for IP address: {self.ip_offered}")
-                        system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
-                        self.ip_client = self.ip_offered
-                        self.lease_time = get_option_value(packet[DHCP].options, "lease_time")
-                        self.renewal_time = get_option_value(packet[DHCP].options, "renewal_time")
-                        self.timer_lease = Timer(self.lease_time, self.lease_time_passed)
-                        self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed)
-                        self.timer_lease.start()
-                        self.timer_renewal.start()
-            # print(f"{packet.summary()}")
+        if (DHCP in packet) and (UDP in packet):
+            if (packet[UDP].sport == 67) and (packet[UDP].dport == 68):
+                match get_option_value(packet[DHCP].options, "message-type"):
+                    case 2:  # DHCP Offer
+                        # TODO check if offered IP is valid -> regex
+                        if self.ip_offered is None:     # Another server might have already sent offered ip_address
+                            ip_server = packet["BOOTP"].siaddr
+                            self.ip_offered = packet[BOOTP].yiaddr
+                            self.Server_Info = DHCP_Server_Info(packet[Ether].src,
+                                                                # packet[IP].src,
+                                                                get_option_value(packet[DHCP].options, "server_id"),
+                                                                get_option_value(packet[DHCP].options, "hostname"),
+                                                                get_option_value(packet[DHCP].options, "subnet_mask"),
+                                                                get_option_value(packet[DHCP].options, "broadcast_address"))
+                            print(f"Received DHCP Offer for IP address: {self.ip_offered}")
+                            self.send_request(ip_server)
+                    case 5:  # DHCP ACK
+                        # TODO checking if ACK is received from server that you have info from DHCP Offer
+                        if self.ip_offered == packet[BOOTP].yiaddr:
+                            print(f"Received DHCP ACK for IP address: {self.ip_offered}")
+                            system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
+                            self.ip_client = self.ip_offered
+                            self.lease_time = get_option_value(packet[DHCP].options, "lease_time")
+                            self.renewal_time = get_option_value(packet[DHCP].options, "renewal_time")
+                            self.timer_lease = Timer(self.lease_time, self.lease_time_passed)
+                            self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed)
+                            self.timer_lease.start()
+                            self.timer_renewal.start()
+                # print(f"{packet.summary()}")
 
     # def end_sniffing():
     #     print("Client is not sniffing")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     thread_sniffing = Thread(
         target=lambda: sniff(
-            filter="udp and (port 67 or 68)",
+            # filter="udp and (port 67 or port 68)",   # TODO It is not working for some reason
             prn=Client.packet_handler,
             # stop_filter=Client.end_sniffing,  # TODO think if client ever has to stop sniffing packets
             timeout=1000  # TODO If prn will not be invoked in timeout thread will terminate -> maybe it should never terminate?
