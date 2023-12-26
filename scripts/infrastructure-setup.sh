@@ -94,8 +94,8 @@ fi
 
 
 # Displaying terminals for each namespace
-ip netns exec ns-green xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'green: 10.10.7.1' -fa 'Monospace' -fs 12 -bg darkgreen &
-ip netns exec ns-blue xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'red: 10.10.7.2' -fa 'Monospace' -fs 12 -bg darkblue &
+ip netns exec ns-green xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'green: 10.10.7.1' -fa 'Monospace' -fs 12 -bg darkgreen -e 'cd ../src && /bin/bash' &
+ip netns exec ns-blue xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'blue: ' -fa 'Monospace' -fs 12 -bg darkblue -e 'cd ../src && /bin/bash' &
 
 
 # Testing purpouses commands

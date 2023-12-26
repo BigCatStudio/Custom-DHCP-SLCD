@@ -88,7 +88,7 @@ class DHCP_Client:
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
         print(f"Sent DHCP Request for IP: {self.ip_offered}")
-        print(f"{packet.summary()}")
+        # print(f"{packet.summary()}")
         # TODO identyfing client and server should be done based on hostname and ip
         # server -> (hostname, server_id)
         # client -> (hostname, client_id)
@@ -100,11 +100,13 @@ class DHCP_Client:
         if DHCP in packet:
             match get_option_value(packet[DHCP].options, "message-type"):
                 case 2:  # DHCP Offer
+                    print("Received offer")
                     # TODO check if offered IP is valid -> regex
                     if self.ip_offered is None:     # Another server might have already sent offered ip_address
                         ip_server = packet["BOOTP"].siaddr
                         self.ip_offered = packet[BOOTP].yiaddr
                         self.Server_Info = DHCP_Server_Info(packet[Ether].src,
+                                                            # packet[IP].src,
                                                             get_option_value(packet[DHCP].options, "server_id"),
                                                             get_option_value(packet[DHCP].options, "hostname"),
                                                             get_option_value(packet[DHCP].options, "subnet_mask"),
@@ -123,7 +125,7 @@ class DHCP_Client:
                         self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed)
                         self.timer_lease.start()
                         self.timer_renewal.start()
-            print(f"{packet.summary()}")
+            # print(f"{packet.summary()}")
 
     # def end_sniffing():
     #     print("Client is not sniffing")

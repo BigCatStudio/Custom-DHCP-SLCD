@@ -9,6 +9,19 @@ from os import system
 from utilities import get_option_value
 
 
+class DHCP_Client_Info:
+    def __init__(self, mac_address, ip_address, host_name):
+        self.mac_address = mac_address
+        self.ip_address = ip_address    # TODO it will be "0.0.0.0" until Ack with IP is send to client
+        self.host_name = host_name
+
+    def __str__(self):
+        return "\nAssociated DHCP server info:" + \
+               f"\n\t{self.mac_address}" + \
+               f"\n\t{self.ip_address}" + \
+               f"\n\t{self.host_name}"
+
+
 class DHCP_Server:
     def __init__(self, interface, mac_server, ip_server, ip_pool_start, ip_pool_end, lease_time):
         self.host_name = "server-" + str(interface)
@@ -17,10 +30,10 @@ class DHCP_Server:
         self.ip_server = ip_server      # Initially interface does not have assigned IP address
         # TODO create class for handling ip addresses pool
         self.lease_time = lease_time
-        self.renewal_time = lease_time // 2     # Almost always half of lease_time
+        self.renewal_time = lease_time / 2     # Almost always half of lease_time
         self.timer_lease = None     # It will measure if lease time passes
         self.timer_renewal = None   # It will measure if renewal time passes
-        # self.Client_Info = None     # Informations regarding DHCP client
+        self.Client_Info = None     # Informations regarding DHCP client
 
     # def clear_info(self):
     #     self.ip_client = "0.0.0.0"
@@ -53,7 +66,7 @@ class DHCP_Server:
                                 # TODO add offered IP
                                 # ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print("Sent DHCP Offer")
+        print("Sent DHCP Offer for IP: 10.10.7.20")
         # print(f"{packet.summary()}")
 
     # TODO check ports for ack
@@ -69,7 +82,7 @@ class DHCP_Server:
                                 # ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
         print(f"Sent DHCP Ack for IP: {self.ip_offered}")
-        print(f"{packet.summary()}")
+        # print(f"{packet.summary()}")
 
     # TODO add handling for all DHCP message types
     # 1: DHCPDISCOVER
@@ -86,10 +99,18 @@ class DHCP_Server:
         if DHCP in packet:
             match get_option_value(packet[DHCP].options, "message-type"):
                 case 1:  # DHCP Discover
-                    print("Managing DHCP Discover")
+                    self.Client_Info = DHCP_Client_Info(packet[Ether].src,
+                                                        packet[IP].src,
+                                                        get_option_value(packet[DHCP].options, "hostname"))
+                    print(f"Received DHCP Discover from MAC: {self.Client_Info.mac_address} Hostaname: {self.Client_Info.ip_address} IP: {self.Client_Info.host_name}")
+                    self.send_offer()
+                    # TODO check if addresses and data provided by client are valid to continue exchanging messages
+                    
+                    # TODO extracting DHCP client info and saving new session with client -> (maybe create some structure to keep all active sessions with clients)
+                    # After what time should data about client be deleted, in case client does not get IP Address
                 case 3:  # DHCP Request
                     print("Managing DHCP Request")
-            print(f"{packet.summary()}")
+            # print(f"{packet.summary()}")
 
     # def end_sniffing():
     #     print("Server is not sniffing")
