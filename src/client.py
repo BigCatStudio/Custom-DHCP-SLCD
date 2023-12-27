@@ -5,7 +5,7 @@ from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
 from os import system
 
-from utilities import get_option_value
+from utilities import get_option_value, mac_to_bytes, bytes_to_mac
 
 
 class DHCP_Server_Info:
@@ -48,11 +48,11 @@ class DHCP_Client:
         self.Server_Info = None
 
     def renewal_time_passed(self):
-        print(f"Renewal time passed for IP address: {self.ip_client}")
+        print(f"\nRenewal time passed for IP address: {self.ip_client}")
         # TODO invoke DHCP Request for the same IP address
 
     def lease_time_passed(self):
-        print(f"Lease time passed for IP address: {self.ip_client}")
+        print(f"\nLease time passed for IP address: {self.ip_client}")
         system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
         # TODO invoke DHCP Discover (DHCP server might have freed cient's IP address)
         self.clear_info()   # TODO what with active timers, should they be stopped?
@@ -69,7 +69,7 @@ class DHCP_Client:
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print("Sent DHCP Discover")
+        print("\nSent DHCP Discover")
         # print(f"{packet.summary()}")
         # TODO make availabilty to define TTl for user when creating client -> make thta for all options
         # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
@@ -87,7 +87,7 @@ class DHCP_Client:
                                ("server_id", ip_server),    # TODO think if it is needed
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
-        print(f"Sent DHCP Request for IP: {self.ip_offered}")
+        print(f"\nSent DHCP Request for IP: {self.ip_offered}")
         # print(f"{packet.summary()}")
         # TODO identyfing client and server should be done based on hostname and ip
         # server -> (hostname, server_id)
@@ -103,20 +103,20 @@ class DHCP_Client:
                     case 2:  # DHCP Offer
                         # TODO check if offered IP is valid -> regex
                         if self.ip_offered is None:     # Another server might have already sent offered ip_address
+                            # TODO change all info below to take info proper layer -> IP addresses from packet[IP]
                             ip_server = packet["BOOTP"].siaddr
                             self.ip_offered = packet[BOOTP].yiaddr
                             self.Server_Info = DHCP_Server_Info(packet[Ether].src,
-                                                                # packet[IP].src,
-                                                                get_option_value(packet[DHCP].options, "server_id"),
+                                                                packet[IP].src,
                                                                 get_option_value(packet[DHCP].options, "hostname"),
                                                                 get_option_value(packet[DHCP].options, "subnet_mask"),
                                                                 get_option_value(packet[DHCP].options, "broadcast_address"))
-                            print(f"Received DHCP Offer for IP address: {self.ip_offered}")
+                            print(f"\nReceived DHCP Offer for IP address: {self.ip_offered}")
                             self.send_request(ip_server)
                     case 5:  # DHCP ACK
                         # TODO checking if ACK is received from server that you have info from DHCP Offer
                         if self.ip_offered == packet[BOOTP].yiaddr:
-                            print(f"Received DHCP ACK for IP address: {self.ip_offered}")
+                            print(f"\nReceived DHCP ACK for IP address: {self.ip_offered}")
                             system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
                             self.ip_client = self.ip_offered
                             self.lease_time = get_option_value(packet[DHCP].options, "lease_time")
