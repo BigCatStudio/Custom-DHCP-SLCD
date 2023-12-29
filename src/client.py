@@ -61,6 +61,7 @@ class DHCP_Client:
     def send_discover(self):
         # TODO should be invoked if client does not have allocated IP address -> maybe timer from the last DHCP Discover:
         # set timer for 10 seconds after every DHCP Discover, if client does not have ip address clear info and send new DHCP discover
+        # TODO add xid field generator to BOOTP - how to make unique id for all clients?
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
                  IP(src="0.0.0.0", dst="255.255.255.255", ttl=64) / \
                  UDP(sport=68, dport=67) / \
@@ -70,7 +71,6 @@ class DHCP_Client:
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
         print("\nSent DHCP Discover")
-        # print(f"{packet.summary()}")
         # TODO make availabilty to define TTl for user when creating client -> make thta for all options
         # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
         # TODO create json with default DHCP configuration for Client and Server 
@@ -88,7 +88,6 @@ class DHCP_Client:
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
         print(f"\nSent DHCP Request for IP: {self.ip_offered}")
-        # print(f"{packet.summary()}")
         # TODO identyfing client and server should be done based on hostname and ip
         # server -> (hostname, server_id)
         # client -> (hostname, client_id)

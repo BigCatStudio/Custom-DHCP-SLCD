@@ -23,7 +23,7 @@ class DHCP_Client_Info:
 
 
 class DHCP_Server:
-    def __init__(self, interface, mac_server, ip_server, ip_pool_start, ip_pool_end, lease_time):
+    def __init__(self, interface, mac_server, ip_server, ip_pool_start, ip_pool_end, subnet_mask, lease_time):
         self.host_name = "server-" + str(interface)
         self.interface = interface
         self.mac_server = mac_server
@@ -134,7 +134,7 @@ class DHCP_Server:
 
 if __name__ == "__main__":
     conf.checkIPaddr = False    # TODO check if it needs to be set for server
-    Server = DHCP_Server(conf.iface, get_if_raw_hwaddr(conf.iface)[1], get_if_addr(conf.iface), "10.10.7.5", "10.10.7.50", 20)
+    Server = DHCP_Server(conf.iface, get_if_raw_hwaddr(conf.iface)[1], get_if_addr(conf.iface), "10.10.7.5", "10.10.7.50", "255.255.255.0", 20)
 
     thread_sniffing = Thread(
         target=lambda: sniff(
