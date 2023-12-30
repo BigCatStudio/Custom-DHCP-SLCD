@@ -99,5 +99,5 @@ ip netns exec ns-blue xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'blue
 
 
 # Testing purpouses commands
-# sudo ip netns exec ns-green dnsmasq --dhcp-range=10.10.7.20,10.10.7.25,255.255.255.0 --interface=vt-green --no-daemon
+# sudo ip netns exec ns-green dnsmasq --dhcp-range=10.10.7.20,10.10.7.25,255.255.255.0,2m --interface=vt-green --no-daemon
 # sudo ip netns exec ns-blue dhclient -d vt-blue

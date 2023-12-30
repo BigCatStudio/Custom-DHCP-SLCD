@@ -4,19 +4,19 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
-from os import system
-
 from utilities import get_option_value, mac_to_bytes, bytes_to_mac
 
 
 class DHCP_Client_Info:
     def __init__(self, mac_address, ip_address, host_name):
         self.mac_address = mac_address
-        self.ip_address = ip_address    # TODO it will be "0.0.0.0" until Ack with IP is send to client
+        self.ip_offered = ip_address
+        self.ip_address = "0.0.0.0"   # TODO it will be "0.0.0.0" until Ack with IP is send to client
         self.host_name = host_name
+        # TODO add self.xid = xid
 
     def __str__(self):
-        return "\nAssociated DHCP server info:" + \
+        return "\nAssociated DHCP client info:" + \
                f"\n\t{self.mac_address}" + \
                f"\n\t{self.ip_address}" + \
                f"\n\t{self.host_name}"
@@ -34,7 +34,7 @@ class DHCP_Server:
         self.timer_lease = None     # It will measure if lease time passes
         self.timer_renewal = None   # It will measure if renewal time passes
         self.Client_Info = None     # Informations regarding DHCP client
-        
+
     # def clear_info(self):
     #     self.ip_client = "0.0.0.0"
     #     self.ip_offered = None

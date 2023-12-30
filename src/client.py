@@ -38,6 +38,14 @@ class DHCP_Client:
         self.timer_renewal = None   # It will measure if renewal time passes
         self.Server_Info = None     # Informations regarding DHCP server
 
+    def __str__(self):
+        output = "\nClient info:" + \
+                f"\nInterface: {self.interface}" + \
+                f"\nMAC address (bytes): {self.mac_client}" + \
+                f"\nMAC address (string): {get_if_hwaddr(conf.iface)}" + \
+                f"\nIP address: {self.ip_client}"
+        return output
+
     def clear_info(self):
         self.ip_client = "0.0.0.0"
         self.ip_offered = None
@@ -62,6 +70,7 @@ class DHCP_Client:
         # TODO should be invoked if client does not have allocated IP address -> maybe timer from the last DHCP Discover:
         # set timer for 10 seconds after every DHCP Discover, if client does not have ip address clear info and send new DHCP discover
         # TODO add xid field generator to BOOTP - how to make unique id for all clients?
+        # TODO how to use type=0x800 in Ethernet to allow usage of this program in VLAN 
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
                  IP(src="0.0.0.0", dst="255.255.255.255", ttl=64) / \
                  UDP(sport=68, dport=67) / \
@@ -128,14 +137,6 @@ class DHCP_Client:
 
     # def end_sniffing():
     #     print("Client is not sniffing")
-
-    def __str__(self):
-        output = "\nClient info:" + \
-                 f"\nInterface: {self.interface}" + \
-                 f"\nMAC address (bytes): {self.mac_client}" + \
-                 f"\nMAC address (string): {get_if_hwaddr(conf.iface)}" + \
-                 f"\nIP address: {self.ip_client}"
-        return output
 
 
 if __name__ == "__main__":
