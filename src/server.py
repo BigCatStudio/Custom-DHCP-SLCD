@@ -116,26 +116,27 @@ class DHCP_Server:
                                 # ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         sendp(packet, iface=self.interface)
         print(f"\nSent DHCP Ack for IP: {Client_Info.ip_offered}")
-        # print(f"{packet.summary()}")
 
     def packet_handler(self, packet):
         # TODO Check how server can take IP address from client before lease time
         if DHCP in packet:
             match get_option_value(packet[DHCP].options, "message-type"):
                 case 1:  # DHCP Discover
-                    Client_Info = self.get_client(packet[BOOTP].xid)
-                    if Client_Info is not None:
-                        Client_Info.ip_offered = next(self.ip_poll)
-                    else:
-                        Client_Info = DHCP_Client_Info(packet[Ether].src,
-                                                       next(self.ip_poll),  # Choosing IP address for client
-                                                       packet[BOOTP].xid,
-                                                       get_option_value(packet[DHCP].options, "hostname"))
-                        self.Clients_Info.append(Client_Info)
-                    print(f"\nReceived DHCP Discover from MAC: {Client_Info.mac_address} Hostaname: {Client_Info.host_name} Transaction ID: {packet[BOOTP].xid}")
-                    self.send_offer(Client_Info)
-                    # TODO check if addresses and data provided by client are valid to continue exchanging messages
-                    # TODO After what time should data about client be deleted, in case client does not get IP Address
+                    ip_offered = next(self.ip_poll)
+                    if ip_offered is not None:
+                        Client_Info = self.get_client(packet[BOOTP].xid)
+                        if Client_Info is not None:
+                            Client_Info.ip_offered = next(self.ip_poll)
+                        else:
+                            Client_Info = DHCP_Client_Info(packet[Ether].src,
+                                                           next(self.ip_poll),  # Choosing IP address for client
+                                                           packet[BOOTP].xid,
+                                                           get_option_value(packet[DHCP].options, "hostname"))
+                            self.Clients_Info.append(Client_Info)
+                        print(f"\nReceived DHCP Discover from MAC: {Client_Info.mac_address} Hostaname: {Client_Info.host_name} Transaction ID: {packet[BOOTP].xid}")
+                        self.send_offer(Client_Info)
+                        # TODO check if addresses and data provided by client are valid to continue exchanging messages
+                        # TODO After what time should data about client be deleted, in case client does not get IP Address
                 case 3:  # DHCP Request
                     Client_Info = self.get_client(packet[BOOTP].xid)
                     if Client_Info is not None:    # Checking if server does have active session with client and allocated offered IP address

@@ -33,6 +33,7 @@ class IP_Pool:
             self.ip_end = ip_end
             self.subnet_mask = subnet_mask
             self.ip_current = IPv4Address(self.ip_start)
+            self.ip_list = []
         else:
             print("False")
             # TODO should raise exception
@@ -42,12 +43,25 @@ class IP_Pool:
         return self
 
     def __next__(self):
-        if self.ip_current <= IPv4Address(self.ip_end):
-            x = self.ip_current
+        if len(self.ip_list) == len(self):
+            return None     # TODO it should call mechanism to free IP address from active client
+
+
+
+        x = self.ip_current
+        if x not in self.ip_list:
+            self.ip_list.append(x)
+
+        if self.ip_current == IPv4Address(self.ip_end):
+            self.ip_current = IPv4Address(self.ip_start)
+        else:
             self.ip_current += 1
-            return str(x)
-        raise StopIteration
-        # TODO add checking if address is available -> in server there will be list of all clients: x will store number of all ip addresses if next(IP_Pool) will not be available for x times poll is empty
+
+        if self.ip_current in self.ip_list:
+            next(self)  # TODO Recursion is not good if ip poll is big and most of addresses are used
+
+        return str(x)
+        # raise StopIteration
 
     def __len__(self):
         start = int(IPv4Address(self.ip_start))
