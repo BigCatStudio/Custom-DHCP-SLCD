@@ -1,10 +1,10 @@
-from scapy.all import sendp, sniff, get_if_raw_hwaddr, get_if_hwaddr, conf
+from scapy.all import sendp, sniff, get_if_raw_hwaddr, conf
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
 from os import system
-
+from random import randint
 from utilities import get_option_value, mac_to_bytes, bytes_to_mac
 
 
@@ -34,16 +34,17 @@ class DHCP_Client:
         self.ip_offered = None
         self.lease_time = 0
         self.renewal_time = 0       # Almost always half of lease_time
+        self.transaction_id = randint(0, 4294967295)    # Transaction ID field in DHCP header is 32 bit long
         self.timer_lease = None     # It will measure if lease time passes
         self.timer_renewal = None   # It will measure if renewal time passes
         self.Server_Info = None     # Informations regarding DHCP server
 
     def __str__(self):
         output = "\nClient info:" + \
-                f"\nInterface: {self.interface}" + \
-                f"\nMAC address (bytes): {self.mac_client}" + \
-                f"\nMAC address (string): {get_if_hwaddr(conf.iface)}" + \
-                f"\nIP address: {self.ip_client}"
+                 f"\nInterface: {self.interface}" + \
+                 f"\nMAC address (bytes): {self.mac_client}" + \
+                 f"\nMAC address (string): {bytes_to_mac(self.mac_client)}" + \
+                 f"\nIP address: {self.ip_client}"
         return output
 
     def clear_info(self):
@@ -74,7 +75,7 @@ class DHCP_Client:
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
                  IP(src="0.0.0.0", dst="255.255.255.255", ttl=64) / \
                  UDP(sport=68, dport=67) / \
-                 BOOTP(chaddr=self.mac_client) / \
+                 BOOTP(chaddr=self.mac_client, xid=self.transaction_id) / \
                  DHCP(options=[("message-type", "discover"),
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
@@ -89,7 +90,7 @@ class DHCP_Client:
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
                  IP(src="0.0.0.0", dst="255.255.255.255", ttl=64) / \
                  UDP(sport=68, dport=67) / \
-                 BOOTP(chaddr=self.mac_client) / \
+                 BOOTP(chaddr=self.mac_client, xid=self.transaction_id) / \
                  DHCP(options=[("message-type", "request"),
                                ("hostname", self.host_name),
                                ("requested_addr", self.ip_offered),
@@ -106,7 +107,7 @@ class DHCP_Client:
     def packet_handler(self, packet):
         # TODO Check how server can take IP address from client before lease time
         if (DHCP in packet) and (UDP in packet):
-            if (packet[UDP].sport == 67) and (packet[UDP].dport == 68):
+            if (packet[UDP].sport == 67) and (packet[UDP].dport == 68) and (packet[BOOTP].xid == self.transaction_id):  # filter DHCP messages that are related to this client
                 match get_option_value(packet[DHCP].options, "message-type"):
                     case 2:  # DHCP Offer
                         # TODO check if offered IP is valid -> regex
@@ -135,9 +136,6 @@ class DHCP_Client:
                             self.timer_renewal.start()
                 # print(f"{packet.summary()}")
 
-    # def end_sniffing():
-    #     print("Client is not sniffing")
-
 
 if __name__ == "__main__":
     conf.checkIPaddr = False    # Has to be set for Discover because scapy sends response by matching IP (255.255.255.255 will never match DHCP server address)
@@ -147,7 +145,6 @@ if __name__ == "__main__":
         target=lambda: sniff(
             # filter="udp and (port 67 or port 68)",   # TODO It is not working for some reason
             prn=Client.packet_handler,
-            # stop_filter=Client.end_sniffing,  # TODO think if client ever has to stop sniffing packets
             timeout=1000  # TODO If prn will not be invoked in timeout thread will terminate -> maybe it should never terminate?
             # TODO if i click CTRL + C should allocated IP address be removed for interface?
             # TODO handle CTRL + C interrupt

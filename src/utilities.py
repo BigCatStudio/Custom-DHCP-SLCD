@@ -32,7 +32,7 @@ class IP_Pool:
             self.ip_start = ip_start
             self.ip_end = ip_end
             self.subnet_mask = subnet_mask
-            print("True")
+            self.ip_current = IPv4Address(self.ip_start)
         else:
             print("False")
             # TODO should raise exception

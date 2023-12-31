@@ -32,7 +32,7 @@ ip netns add ns-red
 ip netns exec ns-red ip link set dev lo up
 ip link add vt-red type veth peer name vt-red-br
 ip link set vt-red netns ns-red
-ip netns exec ns-red ip addr add 10.10.8.1/24 dev vt-red
+# ip netns exec ns-red ip addr add 10.10.7.3/24 dev vt-red
 ip netns exec ns-red ip link set vt-red up
 
 
@@ -42,7 +42,7 @@ ip netns exec ns-grey ip link set dev lo up
 
 ip link add vt-grey1 type veth peer name vt-grey1-br
 ip link set vt-grey1 netns ns-grey
-ip netns exec ns-grey ip addr add 10.10.7.3/24 dev vt-grey1
+ip netns exec ns-grey ip addr add 10.10.7.4/24 dev vt-grey1
 ip netns exec ns-grey ip link set vt-grey1 up
 
 ip link add vt-grey2 type veth peer name vt-grey2-br
@@ -96,7 +96,8 @@ fi
 # Displaying terminals for each namespace
 ip netns exec ns-green xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'green: 10.10.7.1' -fa 'Monospace' -fs 12 -bg darkgreen -e 'cd ../src && /bin/bash' &
 ip netns exec ns-blue xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'blue: ' -fa 'Monospace' -fs 12 -bg darkblue -e 'cd ../src && /bin/bash' &
-
+ip netns exec ns-red xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'red: ' -fa 'Monospace' -fs 12 -bg darkred -e 'cd ../src && /bin/bash' &
+ip netns exec ns-grey xterm -xrm 'XTerm.vt100.allowTitleOps: false' -title 'grey: 10.10.7.4' -fa 'Monospace' -fs 12 -bg darkgrey -e 'cd ../src && /bin/bash' &
 
 # Testing purpouses commands
 # sudo ip netns exec ns-green dnsmasq --dhcp-range=10.10.7.20,10.10.7.25,255.255.255.0,2m --interface=vt-green --no-daemon
