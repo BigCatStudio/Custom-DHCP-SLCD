@@ -76,23 +76,3 @@ def mac_to_bytes(mac_address):
 
 def bytes_to_mac(mac_address):
     return ":".join("{:02x}".format(byte) for byte in mac_address)  # Convert bytes back to MAC address format with colon separators
-
-
-if __name__ == "__main__":
-    # TODO move to test directory
-    # if IP_Pool.check_subnet_mask("255.255.255.0"):
-    #     print("1")
-    # if IP_Pool.check_subnet_mask("255.168.255.0"):
-    #     print("2")
-    # if IP_Pool.check_subnet_mask("255.300.255.0"):
-    #     print("3")
-    # if IP_Pool.check_ip_pool("192.168.0.3", "192.168.0.10"):
-    #     print("4")
-    # if IP_Pool.check_ip_pool("000", "1.1.1.1"):
-    #     print("5")
-    poll = IP_Pool("10.10.10.1", "10.10.11.10", "255.255.255.240")
-    i = 1
-    for x in poll:
-        print(f"{i}: {x}")
-        i += 1
-    print(f"Length of poll: {len(poll)}")
