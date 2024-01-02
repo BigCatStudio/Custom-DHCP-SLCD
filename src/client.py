@@ -130,7 +130,6 @@ class DHCP_Client:
 
                             if self.timer_lease is not None:
                                 self.timer_lease.cancel()
-                                print("+++++++ Timer for lease is now default +++++++")
 
                             self.ip_client = self.ip_offered
                             self.lease_time = get_option_value(packet[DHCP].options, "lease_time")

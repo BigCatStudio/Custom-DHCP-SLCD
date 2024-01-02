@@ -5,6 +5,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
 from time import sleep
+from sys import argv
 from utilities import IP_Pool, get_option_value, mac_to_bytes, bytes_to_mac
 
 
@@ -78,14 +79,12 @@ class DHCP_Server:
     # 8: DHCPINFORM
 
     def lease_time_passed(self, transaction_id):
-        ip_address = self.get_client(transaction_id)
-        if ip_address is not None:
-            ip_address = ip_address.ip_address
+        client = self.get_client(transaction_id)
+        if client is not None:
+            ip_address = client.ip_address
             print(f"Lease time passed for: {ip_address}")
             self.ip_poll.free_ip_address(ip_address)    # Freeing ip address
             self.Clients_Info = [client for client in self.Clients_Info if client.transaction_id != transaction_id]     # removing Clients info
-        else:
-            print(f"+++++++ Checking non existing client for transaction: {transaction_id} +++++++")
 
     def get_client(self, transaction_id):
         for client in self.Clients_Info:
@@ -168,8 +167,18 @@ class DHCP_Server:
 
 
 if __name__ == "__main__":
+
+    if len(argv) != 5:
+        print("Provide proper amount of arguments")
+        exit()
+
     conf.checkIPaddr = False    # TODO check if it needs to be set for server
-    Server = DHCP_Server(conf.iface, get_if_raw_hwaddr(conf.iface)[1], get_if_addr(conf.iface), "10.10.7.5", "10.10.7.6", "255.255.255.192", 40)
+
+    try:
+        Server = DHCP_Server(conf.iface, get_if_raw_hwaddr(conf.iface)[1], get_if_addr(conf.iface), argv[1], argv[2], argv[3], int(argv[4]))
+    except ValueError:
+        print("Provided addresses or lease time has invalid format")
+        exit()
 
     thread_sniffing = Thread(
         target=lambda: sniff(
@@ -187,8 +196,11 @@ if __name__ == "__main__":
 
     try:
         while True:
-            print(f"+++++++ Clients amount: {len(Server.Clients_Info)} ++++++")
+            clients_amount = len(Server.Clients_Info)
             Server.Clients_Info = [client for client in Server.Clients_Info if (client.ip_address != "0.0.0.0") or (client.activity is True)]  # Removing client sessions that are inactive for too long
+            if clients_amount > len(Server.Clients_Info):
+                print(f"Lease time passed for Clients: {clients_amount - len(Server.Clients_Info)}")
+
             for client in Server.Clients_Info:
                 if client.ip_address == "0.0.0.0":
                     if client.activity:

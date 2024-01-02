@@ -35,7 +35,7 @@ class IP_Pool:
             self.ip_current = IPv4Address(self.ip_start)
             self.ip_list = []
         else:
-            print("False")
+            raise ValueError
             # TODO should raise exception
 
     def __iter__(self):
