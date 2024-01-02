@@ -8,8 +8,7 @@ fi
 ip link del vt-green-br
 ip link del vt-red-br
 ip link del vt-blue-br 
-ip link del vt-grey1-br
-ip link del vt-grey2-br
+ip link del vt-grey-br
 
 ip netns del ns-green
 ip netns del ns-blue

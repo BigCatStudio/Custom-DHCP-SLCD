@@ -46,27 +46,23 @@ class IP_Pool:
         if len(self.ip_list) == len(self):
             return None     # TODO it should call mechanism to free IP address from active client
 
+        while self.ip_current in self.ip_list:
+            if self.ip_current == IPv4Address(self.ip_end):
+                self.ip_current = IPv4Address(self.ip_start)
+            else:
+                self.ip_current += 1
 
+        self.ip_list.append(self.ip_current)
 
-        x = self.ip_current
-        if x not in self.ip_list:
-            self.ip_list.append(x)
-
-        if self.ip_current == IPv4Address(self.ip_end):
-            self.ip_current = IPv4Address(self.ip_start)
-        else:
-            self.ip_current += 1
-
-        if self.ip_current in self.ip_list:
-            next(self)  # TODO Recursion is not good if ip poll is big and most of addresses are used
-
-        return str(x)
-        # raise StopIteration
+        return str(self.ip_current)
 
     def __len__(self):
         start = int(IPv4Address(self.ip_start))
         end = int(IPv4Address(self.ip_end))
         return end - start + 1
+
+    def free_ip_address(self, ip_address):
+        self.ip_list = [address for address in self.ip_list if address != IPv4Address(ip_address)]
 
 
 def get_option_value(option_list, option):

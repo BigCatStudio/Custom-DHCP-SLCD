@@ -40,15 +40,10 @@ ip netns exec ns-red ip link set vt-red up
 ip netns add ns-grey
 ip netns exec ns-grey ip link set dev lo up
 
-ip link add vt-grey1 type veth peer name vt-grey1-br
-ip link set vt-grey1 netns ns-grey
-ip netns exec ns-grey ip addr add 10.10.7.4/24 dev vt-grey1
-ip netns exec ns-grey ip link set vt-grey1 up
-
-ip link add vt-grey2 type veth peer name vt-grey2-br
-ip link set vt-grey2 netns ns-grey
-ip netns exec ns-grey ip addr add 10.10.8.2/24 dev vt-grey2
-ip netns exec ns-grey ip link set vt-grey2 up
+ip link add vt-grey type veth peer name vt-grey-br
+ip link set vt-grey netns ns-grey
+ip netns exec ns-grey ip addr add 10.10.7.4/24 dev vt-grey
+ip netns exec ns-grey ip link set vt-grey up
 
 
 # Bridge east
@@ -69,11 +64,8 @@ ip link set dev vt-red-br up
 ip link add br-west type bridge
 ip link set dev br-west up
 
-ip link set vt-grey1-br master br-west
-ip link set dev vt-grey1-br up
-
-ip link set vt-grey2-br master br-west
-ip link set dev vt-grey2-br up
+ip link set vt-grey-br master br-west
+ip link set dev vt-grey-br up
 
 
 # Linking bridges

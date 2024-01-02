@@ -4,6 +4,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.dhcp import BOOTP, DHCP
 from threading import Thread, Timer
 from os import system
+from time import sleep
 from random import randint
 from utilities import get_option_value, mac_to_bytes, bytes_to_mac
 
@@ -48,6 +49,7 @@ class DHCP_Client:
         return output
 
     def clear_info(self):
+        system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
         self.ip_client = "0.0.0.0"
         self.ip_offered = None
         self.lease_time = 0
@@ -56,16 +58,14 @@ class DHCP_Client:
         self.timer_renewal = None
         self.Server_Info = None
 
-    def renewal_time_passed(self):
+    def renewal_time_passed(self, ip_server):
         print(f"\nRenewal time passed for IP address: {self.ip_client}")
-        # TODO invoke DHCP Request for the same IP address
+        self.send_request(ip_server)
 
     def lease_time_passed(self):
         print(f"\nLease time passed for IP address: {self.ip_client}")
-        system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
+        self.clear_info()
         # TODO invoke DHCP Discover (DHCP server might have freed cient's IP address)
-        self.clear_info()   # TODO what with active timers, should they be stopped?
-        self.send_discover()    # TODO think, maybe regular discover check should invoke new DHCP Discover
 
     def send_discover(self):
         # TODO should be invoked if client does not have allocated IP address -> maybe timer from the last DHCP Discover:
@@ -79,11 +79,11 @@ class DHCP_Client:
                  DHCP(options=[("message-type", "discover"),
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
-        sendp(packet, iface=self.interface)
         print("\nSent DHCP Discover")
-        # TODO make availabilty to define TTl for user when creating client -> make thta for all options
+        sendp(packet, iface=self.interface)
+        # TODO make availabilty to define TTl for user when creating client -> make that for all options
         # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
-        # TODO create json with default DHCP configuration for Client and Server 
+        # TODO create json with default DHCP configuration for Client and Server
         # TODO Client and Server should take values from json files when started
 
     def send_request(self, ip_server):
@@ -96,8 +96,8 @@ class DHCP_Client:
                                ("requested_addr", self.ip_offered),
                                ("server_id", ip_server),    # TODO think if it is needed
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
+        print(f"\nSent DHCP Request for IP: {self.ip_offered} to {ip_server}")
         sendp(packet, iface=self.interface)
-        print(f"\nSent DHCP Request for IP: {self.ip_offered}")
         # TODO identyfing client and server should be done based on hostname and ip
         # server -> (hostname, server_id)
         # client -> (hostname, client_id)
@@ -120,21 +120,25 @@ class DHCP_Client:
                                                                 get_option_value(packet[DHCP].options, "hostname"),
                                                                 get_option_value(packet[DHCP].options, "subnet_mask"),
                                                                 get_option_value(packet[DHCP].options, "broadcast_address"))
-                            print(f"\nReceived DHCP Offer for IP address: {self.ip_offered}")
+                            print(f"\nReceived DHCP Offer for IP address: {self.ip_offered} from {ip_server}")
                             self.send_request(ip_server)
                     case 5:  # DHCP ACK
                         # TODO checking if ACK is received from server that you have info from DHCP Offer
                         if self.ip_offered == packet[BOOTP].yiaddr:
                             print(f"\nReceived DHCP ACK for IP address: {self.ip_offered}")
                             system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
+
+                            if self.timer_lease is not None:
+                                self.timer_lease.cancel()
+                                print("+++++++ Timer for lease is now default +++++++")
+
                             self.ip_client = self.ip_offered
                             self.lease_time = get_option_value(packet[DHCP].options, "lease_time")
                             self.renewal_time = get_option_value(packet[DHCP].options, "renewal_time")
                             self.timer_lease = Timer(self.lease_time, self.lease_time_passed)
-                            self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed)
+                            self.timer_renewal = Timer(self.renewal_time, self.renewal_time_passed, args=[packet[IP].src])
                             self.timer_lease.start()
                             self.timer_renewal.start()
-                # print(f"{packet.summary()}")
 
 
 if __name__ == "__main__":
@@ -149,13 +153,23 @@ if __name__ == "__main__":
             # TODO if i click CTRL + C should allocated IP address be removed for interface?
             # TODO handle CTRL + C interrupt
         ),
-        name="thread_sniffing"
+        name="thread_sniffing",
+        daemon=True
     )
 
     thread_sniffing.start()
-    Client.send_discover()
-    # sleep(0.25)
-    thread_sniffing.join()
+
+    try:
+        while True:
+            if Client.ip_client == "0.0.0.0":
+                Client.send_discover()
+                sleep(10)
+    except KeyboardInterrupt:
+        if Client.ip_client != "0.0.0.0":
+            Client.clear_info()
+        print("---------------------- INTERRUPT FROM KEYBOARD -------------------------")
+
+    # thread_sniffing.join()
 
 # TODO check when to resend Discover if server does not respond with Offer
 # TODO check when to resend Request if server does not respond with Ack
