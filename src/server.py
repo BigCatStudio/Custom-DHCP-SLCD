@@ -74,7 +74,7 @@ class DHCP_Server:
                                ("lease_time", self.lease_time),
                                ("renewal_time", self.renewal_time), "end"])
         print(f"\nSent DHCP Offer for IP: {Client_Info.ip_offered}")
-        sendp(packet, iface=self.interface)
+        sendp(packet, iface=self.interface, verbose=False)
 
     def send_ack(self, Client_Info):
         packet = Ether(src=self.mac_server, dst="ff:ff:ff:ff:ff:ff") / \
@@ -91,11 +91,10 @@ class DHCP_Server:
                                ("lease_time", self.lease_time),
                                ("renewal_time", self.renewal_time), "end"])
         print(f"\nSent DHCP Ack for IP: {Client_Info.ip_offered}")
-        sendp(packet, iface=self.interface)
+        sendp(packet, iface=self.interface, verbose=False)
         Client_Info.ip_address = Client_Info.ip_offered
         if Client_Info.timer_lease is not None:     # Resetting timer of lease time if needed
             Client_Info.timer_lease.cancel()
-            print("Timer of lease is default")
 
         Client_Info.timer_lease = Timer(self.lease_time, self.lease_time_passed, args=[Client_Info.transaction_id])
         Client_Info.timer_lease.start()
@@ -115,7 +114,7 @@ class DHCP_Server:
                                                            packet[BOOTP].xid,
                                                            get_option_value(packet[DHCP].options, "hostname"))
                             self.Clients_Info.append(Client_Info)
-                        print(f"\nReceived DHCP Discover from MAC: {Client_Info.mac_address} Hostaname: {Client_Info.host_name} Transaction ID: {packet[BOOTP].xid}")
+                        print(f"\nReceived DHCP Discover from MAC: {Client_Info.mac_address} Transaction ID: {packet[BOOTP].xid}")
                         self.send_offer(Client_Info)
                 case 3:  # DHCP Request
                     Client_Info = self.get_client(packet[BOOTP].xid)
@@ -123,7 +122,7 @@ class DHCP_Server:
                         if Client_Info.ip_offered == get_option_value(packet[DHCP].options, "requested_addr"):
                             if Client_Info.timer_lease is not None:     # Resetting timer if client requests address before lease time passes
                                 Client_Info.timer_lease.cancel()
-                            print(f"\nReceived DHCP Request from MAC: {Client_Info.mac_address} Hostaname: {Client_Info.host_name}")
+                            print(f"\nReceived DHCP Request for: {Client_Info.ip_offered} Transaction ID: {packet[BOOTP].xid}")
                             self.send_ack(Client_Info)
 
 
@@ -156,7 +155,7 @@ if __name__ == "__main__":
             clients_amount = len(Server.Clients_Info)
             Server.Clients_Info = [client for client in Server.Clients_Info if (client.ip_address != "0.0.0.0") or (client.activity is True)]  # Removing client sessions that are inactive for too long
             if clients_amount > len(Server.Clients_Info):
-                print(f"Lease time passed for Clients: {clients_amount - len(Server.Clients_Info)}")
+                print(f"Clients removed because of not continuing DHCP messages exchange: {clients_amount - len(Server.Clients_Info)}")
 
             for client in Server.Clients_Info:
                 if client.ip_address == "0.0.0.0":

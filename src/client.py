@@ -75,7 +75,7 @@ class DHCP_Client:
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         print("\nSent DHCP Discover")
-        sendp(packet, iface=self.interface)
+        sendp(packet, iface=self.interface, verbose=False)
 
     def send_request(self, ip_server):
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
@@ -88,7 +88,7 @@ class DHCP_Client:
                                ("server_id", ip_server),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         print(f"\nSent DHCP Request for IP: {self.ip_offered} to {ip_server}")
-        sendp(packet, iface=self.interface)
+        sendp(packet, iface=self.interface, verbose=False)
 
     def packet_handler(self, packet):
         if (DHCP in packet) and (UDP in packet):
@@ -96,7 +96,7 @@ class DHCP_Client:
                 match get_option_value(packet[DHCP].options, "message-type"):
                     case 2:  # DHCP Offer
                         if self.ip_offered is None:     # Another server might have already sent offered ip_address
-                            ip_server = packet["BOOTP"].siaddr
+                            ip_server = packet[BOOTP].siaddr
                             self.ip_offered = packet[BOOTP].yiaddr
                             self.Server_Info = DHCP_Server_Info(packet[Ether].src,
                                                                 packet[IP].src,
@@ -107,10 +107,10 @@ class DHCP_Client:
                             self.send_request(ip_server)
                     case 5:  # DHCP ACK
                         if self.ip_offered == packet[BOOTP].yiaddr:     # Check if ACK is actual for this client (actual IP and not old one for example)
-                            print(f"\nReceived DHCP ACK for IP address: {self.ip_offered}")
+                            print(f"\nReceived DHCP ACK for IP address: {self.ip_offered} from {packet[BOOTP].siaddr}")
                             system(f"ifconfig {self.interface} {self.ip_offered}/24")
 
-                            if self.timer_lease is not None:    # Resetting lease time timer 
+                            if self.timer_lease is not None:    # Resetting lease time timer
                                 self.timer_lease.cancel()
 
                             self.ip_client = self.ip_offered
