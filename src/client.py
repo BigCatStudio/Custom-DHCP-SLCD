@@ -42,10 +42,11 @@ class DHCP_Client:
 
     def __str__(self):
         output = "\nClient info:" + \
-                 f"\nInterface: {self.interface}" + \
-                 f"\nMAC address (bytes): {self.mac_client}" + \
-                 f"\nMAC address (string): {bytes_to_mac(self.mac_client)}" + \
-                 f"\nIP address: {self.ip_client}"
+                 f"\n\tHost name: {self.host_name}" + \
+                 f"\n\tInterface: {self.interface}" + \
+                 f"\n\tMAC address (bytes): {self.mac_client}" + \
+                 f"\n\tMAC address (string): {bytes_to_mac(self.mac_client)}" + \
+                 f"\n\tIP address: {self.ip_client}"
         return output
 
     def clear_info(self):   # Resetting all informations reagarding DHCP session with server and given IP address
@@ -125,10 +126,11 @@ class DHCP_Client:
 if __name__ == "__main__":
     conf.checkIPaddr = False    # Has to be set for Discover because scapy sends response by matching IP (255.255.255.255 will never match DHCP server address)
     Client = DHCP_Client(conf.iface, get_if_raw_hwaddr(conf.iface)[1])
+    print(Client)
 
     thread_sniffing = Thread(
         target=lambda: sniff(
-            # filter="udp and (port 67 or port 68)",   # It is not working for some reason
+            #filter="udp and (port 67 or port 68)",
             prn=Client.packet_handler
         ),
         name="thread_sniffing",

@@ -39,10 +39,11 @@ class DHCP_Server:
 
     def __str__(self):
         output = "\nServer info:" + \
-                 f"\nInterface: {self.interface}" + \
-                 f"\nMAC address (bytes): {self.mac_server}" + \
-                 f"\nMAC address (string): {bytes_to_mac(self.mac_server)}" + \
-                 f"\nIP address: {self.ip_server}"
+                 f"\n\tHost name: {self.host_name}" + \
+                 f"\n\tInterface: {self.interface}" + \
+                 f"\n\tMAC address (bytes): {self.mac_server}" + \
+                 f"\n\tMAC address (string): {bytes_to_mac(self.mac_server)}" + \
+                 f"\n\tIP address: {self.ip_server}"
         return output
 
     def lease_time_passed(self, transaction_id):
@@ -139,6 +140,8 @@ if __name__ == "__main__":
         print("Provided addresses or lease time has invalid format")
         exit()
 
+    print(Server)
+
     thread_sniffing = Thread(
         target=lambda: sniff(
             filter="udp and (port 67 or port 68)",
@@ -165,4 +168,4 @@ if __name__ == "__main__":
                     client.activity = True
             sleep(10)
     except KeyboardInterrupt:
-        print("---------------------- INTERRUPT FROM KEYBOARD -------------------------")
+        print("INTERRUPT FROM KEYBOARD")
