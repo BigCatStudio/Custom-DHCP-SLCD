@@ -156,7 +156,15 @@ if __name__ == "__main__":
     try:
         while True:
             clients_amount = len(Server.Clients_Info)
-            Server.Clients_Info = [client for client in Server.Clients_Info if (client.ip_address != "0.0.0.0") or (client.activity is True)]  # Removing client sessions that are inactive for too long
+
+            new_list = []
+            for client in Server.Clients_Info:
+                if (client.ip_address == "0.0.0.0") and (client.activity is False):   # Removing client sessions that are inactive for too long
+                    Server.ip_poll.free_ip_address(client.ip_offered)
+                else:
+                    new_list.append(client)
+            Server.Clients_Info = new_list
+
             if clients_amount > len(Server.Clients_Info):
                 print(f"Clients removed because of not continuing DHCP messages exchange: {clients_amount - len(Server.Clients_Info)}")
 
