@@ -42,14 +42,15 @@ class DHCP_Client:
 
     def __str__(self):
         output = "\nClient info:" + \
-                 f"\nInterface: {self.interface}" + \
-                 f"\nMAC address (bytes): {self.mac_client}" + \
-                 f"\nMAC address (string): {bytes_to_mac(self.mac_client)}" + \
-                 f"\nIP address: {self.ip_client}"
+                 f"\n\tHost name: {self.host_name}" + \
+                 f"\n\tInterface: {self.interface}" + \
+                 f"\n\tMAC address (bytes): {self.mac_client}" + \
+                 f"\n\tMAC address (string): {bytes_to_mac(self.mac_client)}" + \
+                 f"\n\tIP address: {self.ip_client}"
         return output
 
-    def clear_info(self):
-        system(f"ip addr del {self.ip_client}/24 dev {self.interface}")    # TODO replace 24 with subnet mask length
+    def clear_info(self):   # Resetting all informations reagarding DHCP session with server and given IP address
+        system(f"ip addr del {self.ip_client}/24 dev {self.interface}")
         self.ip_client = "0.0.0.0"
         self.ip_offered = None
         self.lease_time = 0
@@ -65,13 +66,8 @@ class DHCP_Client:
     def lease_time_passed(self):
         print(f"\nLease time passed for IP address: {self.ip_client}")
         self.clear_info()
-        # TODO invoke DHCP Discover (DHCP server might have freed cient's IP address)
 
     def send_discover(self):
-        # TODO should be invoked if client does not have allocated IP address -> maybe timer from the last DHCP Discover:
-        # set timer for 10 seconds after every DHCP Discover, if client does not have ip address clear info and send new DHCP discover
-        # TODO add xid field generator to BOOTP - how to make unique id for all clients?
-        # TODO how to use type=0x800 in Ethernet to allow usage of this program in VLAN 
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
                  IP(src="0.0.0.0", dst="255.255.255.255", ttl=64) / \
                  UDP(sport=68, dport=67) / \
@@ -80,11 +76,7 @@ class DHCP_Client:
                                ("hostname", self.host_name),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         print("\nSent DHCP Discover")
-        sendp(packet, iface=self.interface)
-        # TODO make availabilty to define TTl for user when creating client -> make that for all options
-        # maybe use json file for initial parameters for dhcp client and server like: { ip: [ttl:64] }
-        # TODO create json with default DHCP configuration for Client and Server
-        # TODO Client and Server should take values from json files when started
+        sendp(packet, iface=self.interface, verbose=False)
 
     def send_request(self, ip_server):
         packet = Ether(src=self.mac_client, dst="ff:ff:ff:ff:ff:ff") / \
@@ -94,26 +86,18 @@ class DHCP_Client:
                  DHCP(options=[("message-type", "request"),
                                ("hostname", self.host_name),
                                ("requested_addr", self.ip_offered),
-                               ("server_id", ip_server),    # TODO think if it is needed
+                               ("server_id", ip_server),
                                ("param_req_list", [1, 12, 28, 51, 58]), "end"])
         print(f"\nSent DHCP Request for IP: {self.ip_offered} to {ip_server}")
-        sendp(packet, iface=self.interface)
-        # TODO identyfing client and server should be done based on hostname and ip
-        # server -> (hostname, server_id)
-        # client -> (hostname, client_id)
-        # client should contain information about session with every server and identify messages with it like defined in upper lines
-        # same for server (it will exchange messages with many clients)
+        sendp(packet, iface=self.interface, verbose=False)
 
     def packet_handler(self, packet):
-        # TODO Check how server can take IP address from client before lease time
         if (DHCP in packet) and (UDP in packet):
             if (packet[UDP].sport == 67) and (packet[UDP].dport == 68) and (packet[BOOTP].xid == self.transaction_id):  # filter DHCP messages that are related to this client
                 match get_option_value(packet[DHCP].options, "message-type"):
                     case 2:  # DHCP Offer
-                        # TODO check if offered IP is valid -> regex
                         if self.ip_offered is None:     # Another server might have already sent offered ip_address
-                            # TODO change all info below to take info proper layer -> IP addresses from packet[IP]
-                            ip_server = packet["BOOTP"].siaddr
+                            ip_server = packet[BOOTP].siaddr
                             self.ip_offered = packet[BOOTP].yiaddr
                             self.Server_Info = DHCP_Server_Info(packet[Ether].src,
                                                                 packet[IP].src,
@@ -123,12 +107,11 @@ class DHCP_Client:
                             print(f"\nReceived DHCP Offer for IP address: {self.ip_offered} from {ip_server}")
                             self.send_request(ip_server)
                     case 5:  # DHCP ACK
-                        # TODO checking if ACK is received from server that you have info from DHCP Offer
-                        if self.ip_offered == packet[BOOTP].yiaddr:
-                            print(f"\nReceived DHCP ACK for IP address: {self.ip_offered}")
-                            system(f"ifconfig {self.interface} {self.ip_offered}/24")   # TODO instead of 24 -> subnet mask length
+                        if self.ip_offered == packet[BOOTP].yiaddr:     # Check if ACK is actual for this client (actual IP and not old one for example)
+                            print(f"\nReceived DHCP ACK for IP address: {self.ip_offered} from {packet[BOOTP].siaddr}")
+                            system(f"ifconfig {self.interface} {self.ip_offered}/24")
 
-                            if self.timer_lease is not None:
+                            if self.timer_lease is not None:    # Resetting lease time timer
                                 self.timer_lease.cancel()
 
                             self.ip_client = self.ip_offered
@@ -143,14 +126,12 @@ class DHCP_Client:
 if __name__ == "__main__":
     conf.checkIPaddr = False    # Has to be set for Discover because scapy sends response by matching IP (255.255.255.255 will never match DHCP server address)
     Client = DHCP_Client(conf.iface, get_if_raw_hwaddr(conf.iface)[1])
+    print(Client)
 
     thread_sniffing = Thread(
         target=lambda: sniff(
-            # filter="udp and (port 67 or port 68)",   # TODO It is not working for some reason
-            prn=Client.packet_handler,
-            timeout=1000  # TODO If prn will not be invoked in timeout thread will terminate -> maybe it should never terminate?
-            # TODO if i click CTRL + C should allocated IP address be removed for interface?
-            # TODO handle CTRL + C interrupt
+            #filter="udp and (port 67 or port 68)",
+            prn=Client.packet_handler
         ),
         name="thread_sniffing",
         daemon=True
@@ -167,9 +148,3 @@ if __name__ == "__main__":
         if Client.ip_client != "0.0.0.0":
             Client.clear_info()
         print("---------------------- INTERRUPT FROM KEYBOARD -------------------------")
-
-    # thread_sniffing.join()
-
-# TODO check when to resend Discover if server does not respond with Offer
-# TODO check when to resend Request if server does not respond with Ack
-# packet.show()   # Displays all elements of every layer of packet
