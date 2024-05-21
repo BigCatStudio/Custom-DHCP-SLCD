@@ -12,6 +12,6 @@ To run client:
 python3 ./src/client.py
 
 To run server:
-python3 ./src/server.py <IP poll start> <IP poll end> <subnet mask> <lease time>
+python3 ./src/server.py <IP_poll_start> <IP_poll_end> <subnet_mask> <lease_time>
 
 Requires python 3.10/3.11. Scapy is not currently compatible with newer versions of python
